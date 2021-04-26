@@ -1,8 +1,11 @@
 import PIL
 from PIL import Image
 from PIL.ExifTags import TAGS
+import matplotlib.pyplot as plt
 
 import os
+
+from photos_lib import create_text_block
 
 def date_from_metadata(im):
     for tag, value in sorted(im.getexif().items()):
@@ -33,12 +36,42 @@ def determine_date(ipath, im):
     # first, lets try
     res1 = date_from_metadata(im)
     res2 = date_from_fpath(ipath)
-    return (res1, res2)
-    if not res:
-        # try to retrieve a date from any manual sorting
-        res = date_from_fpath(ipath)
+    return res1 or res2 or 'Unknown Date'
 
-    return res
+
+def resize(im, max_size):
+    if im.size[0] > max_size[0] or im.size[1] > max_size[1]:
+        ratio = min(max_size[0] / im.size[0], max_size[1] / im.size[1])
+        new_size = [int(xx * ratio) for xx in im.size]
+        newimg = im.resize(new_size)
+    else:
+        newimg = im
+    return newimg
+
+
+def combine(photo, text):
+    max_height = 1080
+    max_width = 1920
+    rphoto = resize(photo, (max_width, max_height))
+    p_w, p_h = rphoto.size
+    t_w, t_h = text.size
+
+    if p_h + t_h <= max_height:
+        f_h = p_h + t_h
+        f_w = max(p_w, t_w)
+        x = 0
+        y = p_h
+    else:
+        f_h = max(p_h, t_h)
+        f_w = p_w + t_w
+        x = p_w
+        y = max(0, p_h - t_h)
+
+    final = Image.new(mode='RGB', size=(f_w, f_h), color='black')
+    final.paste(rphoto, (0, 0))
+    final.paste(text, (x, y))
+
+    return final
 
 
 def do_one(ipath, dest):
@@ -52,6 +85,10 @@ def do_one(ipath, dest):
     root, ext = os.path.splitext(dest)
     jpath = root + '.jpg'
     date = determine_date(ipath, im)
+    text_image = create_text_block.text_block(date, ipath)
     print(indent, ipath, im.format, im.size, im.mode, root, ext, jpath, date)
+    final = combine(im, text_image)
 
-    im.save(jpath, format='JPEG')
+    final.save(jpath, format='JPEG')
+    plt.imshow(final)
+    
