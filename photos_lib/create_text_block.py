@@ -14,11 +14,11 @@ def text_block(date, fname, body=''):
     widths = [font.getsize(xx)[0] for xx in lines]
     width = max(widths) + 10
 
-    im = Image.new('RGB', (width, height), 'cyan')
+    im = Image.new('RGB', (width, height), 'lightgray')
     img_draw = ImageDraw.Draw(im)
     y = 5
     for line in lines:
-        img_draw.text((5, y), line, fill='green', font=font)
+        img_draw.text((5, y), line, fill='darkslategray', font=font)
         y += fy
 
     return im

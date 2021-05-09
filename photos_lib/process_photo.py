@@ -45,7 +45,7 @@ def resize(im, max_size):
         new_size = [int(xx * ratio) for xx in im.size]
         newimg = im.resize(new_size)
     else:
-        newimg = im
+        newimg = im.resize(im.size)    # makes freeing memory easier
     return newimg
 
 
@@ -71,24 +71,52 @@ def combine(photo, text):
     final.paste(rphoto, (0, 0))
     final.paste(text, (x, y))
 
+
+    rphoto.close()
+    text.close()
+
     return final
 
 
-def do_one(ipath, dest):
-    try:
-        im = Image.open(ipath)
-    except PIL.UnidentifiedImageError:
-        print('Skipping UnidentifiedImage Format', ipath)
-        return -1
+def do_one(ipath, dest, chop):
     level = len(ipath.split('/'))
     indent = '  ' * level
     root, ext = os.path.splitext(dest)
     jpath = root + '.jpg'
-    date = determine_date(ipath, im)
-    text_image = create_text_block.text_block(date, ipath)
-    print(indent, ipath, im.format, im.size, im.mode, root, ext, jpath, date)
-    final = combine(im, text_image)
+    if os.path.exists(jpath):
+        print(indent, ipath, "already processed")
+        return
 
-    final.save(jpath, format='JPEG')
-    plt.imshow(final)
-    
+    try:
+        im = Image.open(ipath)
+    except (PIL.UnidentifiedImageError, OSError) as e:
+        print('Skipping UnidentifiedImage Format', ipath, e)
+        return -1
+
+    final = None
+    try:
+        # I didn't want to put all this inside the try block, bu PIL
+        # loads images lazily, so some OSErrors aren't discovered until later
+        date = determine_date(ipath, im)
+        shorter_path = ipath
+        if chop and ipath.startswith(chop):
+            shorter_path = ipath.replace(chop, '')
+        text_image = create_text_block.text_block(date, shorter_path)
+        print(indent, ipath, im.format, im.size, im.mode, root, ext, jpath, date)
+        final = combine(im, text_image)
+
+        final.save(jpath, format='JPEG')
+        final.close()
+
+    except (PIL.UnidentifiedImageError, OSError) as e:
+        print('Skipping Unloadable JIT image', ipath, e)
+        return -2
+
+    finally:
+        im.close()
+        if final:
+            final.close()
+
+
+
+
